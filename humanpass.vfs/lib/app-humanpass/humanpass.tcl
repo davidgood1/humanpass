@@ -39,6 +39,8 @@ proc createGui {} {
 
     wm geometry $win {}
     wm resizable $win 1 0
+
+    bind $win <Key-Return> UpdatePassword
 }
 
 proc UpdatePassword {} {
