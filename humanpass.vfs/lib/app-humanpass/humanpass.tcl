@@ -1,5 +1,7 @@
 package require Tk
 
+option add *tearOff 0;          # tearoff menus must die!
+
 set G(Version) 1.0
 
 set G(PassChars) "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -24,9 +26,14 @@ proc createGui {} {
     set f [ttk::frame $win.f]
     grid $f -sticky news -padx 4 -pady 4
 
-    # TODO: save / load menu
+    # Setup Menu bar
+    set mb [menu $win.mb]
+    $win configure -menu $mb
 
     # Options menu
+    $mb add command -label "Options" -command [list wm deiconify .options]
+
+    # TODO: save / load menu
 
     set l [ttk::label $f.lChars -text "Characters:"]
     set sb [ttk::spinbox $f.sb -textvariable G(NumChars) -width 4 -from 4 -to 128]
@@ -43,6 +50,30 @@ proc createGui {} {
     wm resizable $win 1 0
 
     bind $win <Key-Return> UpdatePassword
+
+    # Create the Options window
+    set win .options
+    catch {destroy $win}
+    toplevel $win
+    wm withdraw $win
+    wm title $win "[wm title [winfo parent $win]] - Options"
+    grid columnconfigure $win 0 -weight 1
+
+    set f [ttk::frame $win.f]
+    grid $f -sticky news -padx 4 -pady 4
+    grid columnconfigure $f 1 -weight 1
+    set row 0
+    foreach {key text} [list PassChars "Password Characters" SepChars "Separator Characters"] {
+        set l [ttk::label $f.l$key -text "$text:"]
+        set e [ttk::entry $f.e$key -textvariable G($key) -width [string length $G($key)]]
+        grid $l $e -row $row -sticky ew -padx 4 -pady 4
+        incr row
+    }
+    wm resizable $win 1 0
+
+    # Prevent the destruction of this window
+    bind $win <Key-Escape> [list wm withdraw $win]
+    wm protocol $win WM_DELETE_WINDOW [list wm withdraw $win]
 }
 
 proc UpdatePassword {} {
