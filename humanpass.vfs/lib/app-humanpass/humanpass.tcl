@@ -1,6 +1,6 @@
-package provide app-humanpass 1.0
-
 package require Tk
+
+set G(Version) 1.0
 
 set G(PassChars) "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 set G(SepChars) "\\/^*=+-_.,:;'~\""
@@ -92,5 +92,7 @@ proc humanPass {args} {
     }
     return $str
 }
+
+package provide app-humanpass $G(Version)
 
 # EOF
