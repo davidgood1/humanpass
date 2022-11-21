@@ -2,13 +2,14 @@ package require Tk
 
 option add *tearOff 0;          # tearoff menus must die!
 
+# Non-saved vars
 set G(Version) 1.0
-
-set G(PassChars) "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-set G(SepChars) "\\/^*=+-_.,:;'~\""
-set G(NumChars) 16
-set G(SameSep) 0
 set G(Password) ""
+set G(SaveFile) ""
+
+# Keys in SaveVars will automatically be saved by save procs
+# Their initial values are set in loadDefaults
+set G(SaveVars) [list PassChars SepChars NumChars SameSep]
 
 proc createGui {} {
     global G
@@ -16,6 +17,7 @@ proc createGui {} {
     set win .
     wm title $win "HumanPass $G(Version)"
     grid columnconfigure $win 0 -weight 1
+    wm protocol $win WM_DELETE_WINDOW AppExit
 
     # Create the gui from scratch, if it exists
     foreach child [winfo children $win] {
@@ -30,10 +32,16 @@ proc createGui {} {
     set mb [menu $win.mb]
     $win configure -menu $mb
 
-    # Options menu
-    $mb add command -label "Options" -command [list wm deiconify .options]
+    $mb add cascade -menu $mb.file -label "File" -underline 0
+    $mb add command -label "Options" -command [list wm deiconify .options] -underline 0
 
-    # TODO: save / load menu
+    # File menu
+    set m [menu $mb.file]
+    $m add command -label "Open" -underline 0 -command MenuFileOpen -accelerator {Ctrl-o}
+    $m add command -label "Save" -underline 0 -command MenuFileSave -accelerator {Ctrl-s}
+
+    bind $win <Control-o> {MenuFileOpen}
+    bind $win <Control-s> {MenuFileSave}
 
     set l [ttk::label $f.lChars -text "Characters:"]
     set sb [ttk::spinbox $f.sb -textvariable G(NumChars) -width 4 -from 4 -to 128]
@@ -89,6 +97,109 @@ proc UpdatePassword {} {
     }
 }
 
+proc MenuFileOpen {} {
+    global G
+
+    # Setup Save TK dialog
+    set types {
+        {{HumanPass Files} {.hpass}}
+        {{All Files} *}
+    }
+    set initialDir [file dirname $G(SaveFile)]
+    set filename [tk_getOpenFile -filetypes $types -title "HumanPass Open File" \
+                     -initialdir $initialDir]
+    if {$filename ne ""} {
+        if {[catch {
+            loadState $filename
+            set G(SaveFile) $filename
+        } err]} {
+            tk_messageBox -title "HumanPass Load File Error" -type ok \
+                -message "Cannot load file:\n$err"
+        }
+    }
+}
+
+proc MenuFileSave {} {
+    global G
+
+    # Setup Save TK dialog
+    set types {
+        {{HumanPass Files} {.hpass}}
+        {{All Files} *}
+    }
+    set initialDir [file dirname $G(SaveFile)]
+    set filename [tk_getSaveFile -filetypes $types -title "HumanPass Save File" \
+                     -initialdir $initialDir]
+    if {$filename ne ""} {
+        # Automatically add file extenstion to files which did not specify one
+        if {[string match *.* $filename] == 0} {
+            append filename .hpass
+        }
+        if {[catch {
+            saveState $filename
+            set G(SaveFile) $filename
+        } err]} {
+            tk_messageBox -title "HumanPass Save File Error" -type ok \
+                -message "Cannot save file:\n$err"
+        }
+    }
+}
+
+# Tries to save the current state and exits
+proc AppExit {} {
+    if {[catch {
+        saveState .appdata
+    } err]} {
+        puts "Error saving .appdata: $err"
+    }
+    exit
+}
+
+# Tries to load the previous state if it exists and then starts
+proc AppStart {} {
+    if {[catch {
+        loadState .appdata
+    } err]} {
+        puts "Error loading .appdata: $err"
+        loadDefaults
+    }
+    createGui
+}
+
+# Errors are not handled in this proc
+proc saveState file {
+    global G
+    set chan [open $file w]
+    foreach var $G(SaveVars) {
+        puts $chan "$var $G($var)"
+    }
+    chan close $chan
+}
+
+proc loadState file {
+    global G
+
+    # Read in data file
+    set chan [open $file r]
+    set data [read $chan]
+    close $chan
+
+    foreach line [split $data \n] {
+        set line [string trim $line]
+        lassign $line var val
+        if {[lsearch $G(SaveVars) $var] != -1} {
+            set G($var) $val
+        }
+    }
+}
+
+proc loadDefaults {} {
+    global G
+    set G(PassChars) "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    set G(SepChars) "\\/^*=+-_.,:;'~\""
+    set G(NumChars) 16
+    set G(SameSep) 0
+}
 
 # humanPass ?-sameseparator? passChars sepChars numPassChars
 proc humanPass {args} {
