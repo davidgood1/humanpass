@@ -9,8 +9,10 @@ set G(SameSep) 0
 set G(Password) ""
 
 proc createGui {} {
+    global G
 
     set win .
+    wm title $win "HumanPass $G(Version)"
     grid columnconfigure $win 0 -weight 1
 
     # Create the gui from scratch, if it exists
